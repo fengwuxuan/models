@@ -30,7 +30,7 @@ from object_detection.core import preprocessor
 from object_detection.core import standard_fields as fields
 from object_detection.utils import ops as util_ops
 from object_detection.utils import variables_helper
-from deployment import model_deploy
+from deployment import model_deploy #slim的deployment模块，用于多GPU训练
 
 slim = tf.contrib.slim
 
@@ -59,10 +59,10 @@ def create_input_queue(batch_size_per_clone, create_tensor_dict_fn,
   tensor_dict = create_tensor_dict_fn()
 
   tensor_dict[fields.InputDataFields.image] = tf.expand_dims(
-      tensor_dict[fields.InputDataFields.image], 0)
+      tensor_dict[fields.InputDataFields.image], 0) #获取图片并扩展维度
 
   images = tensor_dict[fields.InputDataFields.image]
-  float_images = tf.to_float(images)
+  float_images = tf.to_float(images) #转成float类型
   tensor_dict[fields.InputDataFields.image] = float_images
 
   include_instance_masks = (fields.InputDataFields.groundtruth_instance_masks
@@ -70,14 +70,14 @@ def create_input_queue(batch_size_per_clone, create_tensor_dict_fn,
   include_keypoints = (fields.InputDataFields.groundtruth_keypoints
                        in tensor_dict)
   include_multiclass_scores = (fields.InputDataFields.multiclass_scores
-                               in tensor_dict)
+                               in tensor_dict) #包含mask、keypoint、multiclass
   if data_augmentation_options:
     tensor_dict = preprocessor.preprocess(
         tensor_dict, data_augmentation_options,
         func_arg_map=preprocessor.get_default_func_arg_map(
             include_multiclass_scores=include_multiclass_scores,
             include_instance_masks=include_instance_masks,
-            include_keypoints=include_keypoints))
+            include_keypoints=include_keypoints)) #数据增广
 
   input_queue = batcher.BatchQueue(
       tensor_dict,
@@ -85,7 +85,7 @@ def create_input_queue(batch_size_per_clone, create_tensor_dict_fn,
       batch_queue_capacity=batch_queue_capacity,
       num_batch_queue_threads=num_batch_queue_threads,
       prefetch_queue_capacity=prefetch_queue_capacity)
-  return input_queue
+  return input_queue #获得输入队列，是batch队列
 
 
 def get_inputs(input_queue,
@@ -100,9 +100,9 @@ def get_inputs(input_queue,
     merge_multiple_label_boxes: Whether to merge boxes with multiple labels
       or not. Defaults to false. Merged boxes are represented with a single
       box and a k-hot encoding of the multiple labels associated with the
-      boxes.
+      boxes. #给每个框多个label
     use_multiclass_scores: Whether to use multiclass scores instead of
-      groundtruth_classes.
+      groundtruth_classes. #与上面对应，groundtruth被替换为multiclass score
 
   Returns:
     images: a list of 3-D float tensor of images.
@@ -177,14 +177,14 @@ def _create_losses(input_queue, create_model_fn, train_config):
        input_queue,
        detection_model.num_classes,
        train_config.merge_multiple_label_boxes,
-       train_config.use_multiclass_scores)
+       train_config.use_multiclass_scores) #获取输出
 
   preprocessed_images = []
   true_image_shapes = []
   for image in images:
     resized_image, true_image_shape = detection_model.preprocess(image)
     preprocessed_images.append(resized_image)
-    true_image_shapes.append(true_image_shape)
+    true_image_shapes.append(true_image_shape) #获取处理的图片，原始尺寸
 
   images = tf.concat(preprocessed_images, 0)
   true_image_shapes = tf.concat(true_image_shapes, 0)
@@ -202,7 +202,7 @@ def _create_losses(input_queue, create_model_fn, train_config):
       groundtruth_weights_list=groundtruth_weights_list)
   prediction_dict = detection_model.predict(images, true_image_shapes)
 
-  losses_dict = detection_model.loss(prediction_dict, true_image_shapes)
+  losses_dict = detection_model.loss(prediction_dict, true_image_shapes) #由detection_model创建loss，修改也应该在此处修改
   for loss_tensor in losses_dict.values():
     tf.losses.add_loss(loss_tensor)
 
@@ -248,10 +248,10 @@ def train(create_tensor_dict_fn,
   detection_model = create_model_fn()
   data_augmentation_options = [
       preprocessor_builder.build(step)
-      for step in train_config.data_augmentation_options]
+      for step in train_config.data_augmentation_options] #预处理builder构建数据增广选项
 
   with tf.Graph().as_default():
-    # Build a configuration specifying multi-GPU and multi-replicas.
+    # Build a configuration specifying multi-GPU and multi-replicas. #处理用于多GPU训练
     deploy_config = model_deploy.DeploymentConfig(
         num_clones=num_clones,
         clone_on_cpu=clone_on_cpu,
@@ -267,7 +267,7 @@ def train(create_tensor_dict_fn,
     if num_clones != 1 and train_config.sync_replicas:
       raise ValueError('In Synchronous SGD mode num_clones must ',
                        'be 1. Found num_clones: {}'.format(num_clones))
-    batch_size = train_config.batch_size // num_clones
+    batch_size = train_config.batch_size // num_clones #batch_size = config_batch_size / num_clones
     if train_config.sync_replicas:
       batch_size //= train_config.replicas_to_aggregate
 
@@ -276,7 +276,7 @@ def train(create_tensor_dict_fn,
           batch_size, create_tensor_dict_fn,
           train_config.batch_queue_capacity,
           train_config.num_batch_queue_threads,
-          train_config.prefetch_queue_capacity, data_augmentation_options)
+          train_config.prefetch_queue_capacity, data_augmentation_options) #为每个设备创建输入队列
 
     # Gather initial summaries.
     # TODO(rathodv): See if summaries can be added/extracted from global tf
@@ -286,8 +286,8 @@ def train(create_tensor_dict_fn,
 
     model_fn = functools.partial(_create_losses,
                                  create_model_fn=create_model_fn,
-                                 train_config=train_config)
-    clones = model_deploy.create_clones(deploy_config, model_fn, [input_queue])
+                                 train_config=train_config) # 模型函数
+    clones = model_deploy.create_clones(deploy_config, model_fn, [input_queue]) #多GPU clone
     first_clone_scope = clones[0].scope
 
     if graph_hook_fn:
@@ -297,7 +297,7 @@ def train(create_tensor_dict_fn,
     # Gather update_ops from the first clone. These contain, for example,
     # the updates for the batch_norm variables created by model_fn.
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, first_clone_scope)
-
+    #创建优化器
     with tf.device(deploy_config.optimizer_device()):
       training_optimizer, optimizer_summary_vars = optimizer_builder.build(
           train_config.optimizer)
@@ -320,7 +320,7 @@ def train(create_tensor_dict_fn,
           regularization_losses=regularization_losses)
       total_loss = tf.check_numerics(total_loss, 'LossTensor is inf or nan.')
 
-      # Optionally multiply bias gradients by train_config.bias_grad_multiplier.
+      # Optionally multiply bias gradients by train_config.bias_grad_multiplier. 添加bias参数
       if train_config.bias_grad_multiplier:
         biases_regex_list = ['.*/biases']
         grads_and_vars = variables_helper.multiply_gradients_matching_regex(
@@ -329,17 +329,17 @@ def train(create_tensor_dict_fn,
             multiplier=train_config.bias_grad_multiplier)
 
       # Optionally freeze some layers by setting their gradients to be zero.
-      if train_config.freeze_variables:
+      if train_config.freeze_variables: #freeze某些layer
         grads_and_vars = variables_helper.freeze_gradients_matching_regex(
             grads_and_vars, train_config.freeze_variables)
 
-      # Optionally clip gradients
+      # Optionally clip gradients 梯度裁剪
       if train_config.gradient_clipping_by_norm > 0:
         with tf.name_scope('clip_grads'):
           grads_and_vars = slim.learning.clip_gradient_norms(
               grads_and_vars, train_config.gradient_clipping_by_norm)
 
-      # Create gradient updates.
+      # Create gradient updates. 创建梯度更新参数
       grad_updates = training_optimizer.apply_gradients(grads_and_vars,
                                                         global_step=global_step)
       update_ops.append(grad_updates)
@@ -347,7 +347,7 @@ def train(create_tensor_dict_fn,
       with tf.control_dependencies([update_op]):
         train_tensor = tf.identity(total_loss, name='train_op')
 
-    # Add summaries.
+    # Add summaries. 增加summries
     for model_var in slim.get_model_variables():
       global_summaries.add(tf.summary.histogram('ModelVars/' +
                                                 model_var.op.name, model_var))
@@ -366,16 +366,16 @@ def train(create_tensor_dict_fn,
     # Merge all summaries together.
     summary_op = tf.summary.merge(list(summaries), name='summary_op')
 
-    # Soft placement allows placing on CPU ops without GPU implementation.
+    # Soft placement allows placing on CPU ops without GPU implementation.，修改会话选项
     session_config = tf.ConfigProto(allow_soft_placement=True,
                                     log_device_placement=False)
 
-    # Save checkpoints regularly.
+    # Save checkpoints regularly. 保存参数的频率
     keep_checkpoint_every_n_hours = train_config.keep_checkpoint_every_n_hours
     saver = tf.train.Saver(
         keep_checkpoint_every_n_hours=keep_checkpoint_every_n_hours)
 
-    # Create ops required to initialize the model from a given checkpoint.
+    # Create ops required to initialize the model from a given checkpoint. 初始化
     init_fn = None
     if train_config.fine_tune_checkpoint:
       if not train_config.fine_tune_checkpoint_type:
