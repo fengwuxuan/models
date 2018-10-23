@@ -50,7 +50,7 @@ from object_detection.builders import dataset_builder
 from object_detection.builders import graph_rewriter_builder
 from object_detection.builders import model_builder
 from object_detection.legacy import trainer
-from object_detection.utils import config_util
+from object_detection.utils import config_util # 提供参数解析
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -63,10 +63,10 @@ flags.DEFINE_boolean('clone_on_cpu', False,
                      'set to False (allowing ops to run on gpu), some ops may '
                      'still be run on the CPU if they have no GPU kernel.')
 flags.DEFINE_integer('worker_replicas', 1, 'Number of worker+trainer '
-                     'replicas.')
+                     'replicas.')  ### which is distributed training
 flags.DEFINE_integer('ps_tasks', 0,
                      'Number of parameter server tasks. If None, does not use '
-                     'a parameter server.')
+                     'a parameter server.') ### which is distributed training
 flags.DEFINE_string('train_dir', '',
                     'Directory to save the checkpoints and training summaries.')
 
@@ -84,13 +84,13 @@ flags.DEFINE_string('model_config_path', '',
 FLAGS = flags.FLAGS
 
 
-@tf.contrib.framework.deprecated(None, 'Use object_detection/model_main.py.')
+@tf.contrib.framework.deprecated(None, 'Use object_detection/model_main.py.') #表示已经不再使用
 def main(_):
   assert FLAGS.train_dir, '`train_dir` is missing.'
-  if FLAGS.task == 0: tf.gfile.MakeDirs(FLAGS.train_dir)
+  if FLAGS.task == 0: tf.gfile.MakeDirs(FLAGS.train_dir) #gfile模块提供各种文件操作
   if FLAGS.pipeline_config_path:
     configs = config_util.get_configs_from_pipeline_file(
-        FLAGS.pipeline_config_path)
+        FLAGS.pipeline_config_path) #获取参数
     if FLAGS.task == 0:
       tf.gfile.Copy(FLAGS.pipeline_config_path,
                     os.path.join(FLAGS.train_dir, 'pipeline.config'),
@@ -114,19 +114,19 @@ def main(_):
   model_fn = functools.partial(
       model_builder.build,
       model_config=model_config,
-      is_training=True)
+      is_training=True) #在这里加入is_training=False，选择freeze掉backbone
 
   def get_next(config):
-    return dataset_builder.make_initializable_iterator(
-        dataset_builder.build(config)).get_next()
+    return dataset_builder.make_initializable_iterator( #返回tf.data.itertor
+        dataset_builder.build(config)).get_next() #builder返回tf.data.Dataset
 
-  create_input_dict_fn = functools.partial(get_next, input_config)
-
+  create_input_dict_fn = functools.partial(get_next, input_config) #输入函数
+  # distributed training
   env = json.loads(os.environ.get('TF_CONFIG', '{}'))
   cluster_data = env.get('cluster', None)
   cluster = tf.train.ClusterSpec(cluster_data) if cluster_data else None
   task_data = env.get('task', None) or {'type': 'master', 'index': 0}
-  task_info = type('TaskSpec', (object,), task_data)
+  task_info = type('TaskSpec', (object,), task_data) 
 
   # Parameters for a single worker.
   ps_tasks = 0
@@ -158,7 +158,7 @@ def main(_):
     task = task_info.index
     is_chief = (task_info.type == 'master')
     master = server.target
-
+  # 重写graph 可以用于量化graph，可选择不训练
   graph_rewriter_fn = None
   if 'graph_rewriter_config' in configs:
     graph_rewriter_fn = graph_rewriter_builder.build(
