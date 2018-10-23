@@ -114,7 +114,7 @@ def main(_):
   model_fn = functools.partial(
       model_builder.build,
       model_config=model_config,
-      is_training=True) #在这里加入is_training=False，选择freeze掉backbone
+      is_training=True) #在这里加入is_training=False，选择freeze掉整个model
 
   def get_next(config):
     return dataset_builder.make_initializable_iterator( #返回tf.data.itertor
