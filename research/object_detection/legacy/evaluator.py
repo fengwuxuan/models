@@ -29,7 +29,7 @@ from object_detection.utils import object_detection_evaluation
 
 # A dictionary of metric names to classes that implement the metric. The classes
 # in the dictionary must implement
-# utils.object_detection_evaluation.DetectionEvaluator interface.
+# utils.object_detection_evaluation.DetectionEvaluator interface. 各种评价指标选择
 EVAL_METRICS_CLASS_DICT = {
     'pascal_voc_detection_metrics':
         object_detection_evaluation.PascalDetectionEvaluator,
@@ -49,7 +49,7 @@ EVAL_METRICS_CLASS_DICT = {
         object_detection_evaluation.OpenImagesDetectionChallengeEvaluator,
 }
 
-EVAL_DEFAULT_METRIC = 'pascal_voc_detection_metrics'
+EVAL_DEFAULT_METRIC = 'pascal_voc_detection_metrics' #默认是Pascal_VOC
 
 
 def _extract_predictions_and_losses(model,
@@ -70,17 +70,17 @@ def _extract_predictions_and_losses(model,
       ignore_groundtruth is true.
   """
   input_dict = create_input_dict_fn()
-  prefetch_queue = prefetcher.prefetch(input_dict, capacity=500)
+  prefetch_queue = prefetcher.prefetch(input_dict, capacity=500) #使用prefetch获取输入
   input_dict = prefetch_queue.dequeue()
   original_image = tf.expand_dims(input_dict[fields.InputDataFields.image], 0)
   preprocessed_image, true_image_shapes = model.preprocess(
-      tf.to_float(original_image))
-  prediction_dict = model.predict(preprocessed_image, true_image_shapes)
-  detections = model.postprocess(prediction_dict, true_image_shapes)
+      tf.to_float(original_image)) #处理输入
+  prediction_dict = model.predict(preprocessed_image, true_image_shapes) #获取预测结果
+  detections = model.postprocess(prediction_dict, true_image_shapes) #后处理
 
   groundtruth = None
   losses_dict = {}
-  if not ignore_groundtruth:
+  if not ignore_groundtruth: #获取gt
     groundtruth = {
         fields.InputDataFields.groundtruth_boxes:
             input_dict[fields.InputDataFields.groundtruth_boxes],
@@ -116,7 +116,7 @@ def _extract_predictions_and_losses(model,
         groundtruth_masks_list, groundtruth_keypoints_list)
     losses_dict.update(model.loss(prediction_dict, true_image_shapes))
 
-  result_dict = eval_util.result_dict_for_single_example(
+  result_dict = eval_util.result_dict_for_single_example( #结果集合
       original_image,
       input_dict[fields.InputDataFields.source_id],
       detections,
