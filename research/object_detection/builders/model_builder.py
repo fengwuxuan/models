@@ -92,7 +92,7 @@ FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP = {
 
 def build(model_config, is_training, add_summaries=True,
           add_background_class=True):
-  """Builds a DetectionModel based on the model config.
+  """Builds a DetectionModel based on the model config. 返回DetectionModel
 
   Args:
     model_config: A model.proto object containing the config for the desired
@@ -123,7 +123,7 @@ def build(model_config, is_training, add_summaries=True,
 
 def _build_ssd_feature_extractor(feature_extractor_config, is_training,
                                  reuse_weights=None):
-  """Builds a ssd_meta_arch.SSDFeatureExtractor based on config.
+  """Builds a ssd_meta_arch.SSDFeatureExtractor based on config. backbone部分构建，选择is_training选项即可freeze
 
   Args:
     feature_extractor_config: A SSDFeatureExtractor proto config from ssd.proto.
@@ -199,7 +199,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries,
       with an explicit background class or using multiclass scores instead of
       truth in the case of distillation.
   Returns:
-    SSDMetaArch based on the config.
+    SSDMetaArch based on the config. 返回SSDMetaArch
 
   Raises:
     ValueError: If ssd_config.type is not recognized (i.e. not registered in
@@ -279,7 +279,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries,
 
 def _build_faster_rcnn_feature_extractor(
     feature_extractor_config, is_training, reuse_weights=None,
-    inplace_batchnorm_update=False):
+    inplace_batchnorm_update=False): #从proto中看出，faster系列是没有FPN的选项的
   """Builds a faster_rcnn_meta_arch.FasterRCNNFeatureExtractor based on config.
 
   Args:
@@ -329,7 +329,7 @@ def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
     add_summaries: Whether to add tf summaries in the model.
 
   Returns:
-    FasterRCNNMetaArch based on the config.
+    FasterRCNNMetaArch based on the config. 返回FasterRCNNMetaArch
 
   Raises:
     ValueError: If frcnn_config.type is not recognized (i.e. not registered in
