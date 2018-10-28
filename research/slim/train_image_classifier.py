@@ -198,7 +198,7 @@ tf.app.flags.DEFINE_string(
     'as `None`, then the model_name flag is used.')
 
 tf.app.flags.DEFINE_integer(
-    'batch_size', 32, 'The number of samples in each batch.')
+    'batch_size', 32, 'The number of samples in each batch for each GPU not all GPU, which is different as object_detection.')
 
 tf.app.flags.DEFINE_integer(
     'train_image_size', None, 'Train image size')
